@@ -1,0 +1,180 @@
+use Tui
+	Screen
+	
+ClockTime
+	h U32
+	m U8
+	s U8
+	
+fn clock-time-from-secs (secs I64)
+	if secs < 0
+		panic('negative seconds!')
+	
+	s = secs Math.mod(60) Mem.i64-u8()
+	m = (secs / 60) Math.mod(60) Mem.i64-u8()
+	h = (secs / (60 * 60)) Mem.i64-u32()
+	return ClockTime { h, m, s }
+
+
+fn cb (screen Ptr (Screen Allocator), s Str, x I32, y I32)
+	og-bg = screen&.default-bg
+	for (c, xx) in s chars() zip(from(x))
+		if is-whitespace(c)
+			screen Tui.set-screen-bg(og-bg)
+			screen Tui.put-char(' ', xx, y)
+		else
+			screen Tui.set-screen-bg(screen&.default-fg)
+			screen Tui.put-char(' ', xx, y)
+	
+	screen Tui.set-screen-bg(og-bg)
+		
+
+fn draw-digit (screen Ptr (Screen Allocator), digit Char, x I32, y I32)
+	if digit == '0'
+		screen cb(' 0000 ', x, y)
+		screen cb('00  00', x, y + 1)
+		screen cb('00  00', x, y + 2)
+		screen cb('00  00', x, y + 3)
+		screen cb(' 0000 ', x, y + 4)
+	elif digit == '1'
+		screen cb('1111  ', x, y)
+		screen cb('  11  ', x, y + 1)
+		screen cb('  11  ', x, y + 2)
+		screen cb('  11  ', x, y + 3)
+		screen cb('111111', x, y + 4)
+	elif digit == '2'
+		screen cb(' 2222 ', x, y)
+		screen cb('22  22', x, y + 1)
+		screen cb('   22 ', x, y + 2)
+		screen cb('  22  ', x, y + 3)
+		screen cb('222222', x, y + 4)
+	elif digit == '3'
+		screen cb(' 3333 ', x, y)
+		screen cb('33  33', x, y + 1)
+		screen cb('   333', x, y + 2)
+		screen cb('33  33', x, y + 3)
+		screen cb(' 3333 ', x, y + 4)
+	elif digit == '4'
+		screen cb('44  44', x, y)
+		screen cb('44  44', x, y + 1)
+		screen cb('444444', x, y + 2)
+		screen cb('    44', x, y + 3)
+		screen cb('    44', x, y + 4)
+	elif digit == '5'
+		screen cb('555555', x, y)
+		screen cb('55    ', x, y + 1)
+		screen cb('55555 ', x, y + 2)
+		screen cb('    55', x, y + 3)
+		screen cb('55555 ', x, y + 4)
+	elif digit == '6'
+		screen cb(' 6666 ', x, y)
+		screen cb('66    ', x, y + 1)
+		screen cb('66666 ', x, y + 2)
+		screen cb('66  66', x, y + 3)
+		screen cb(' 6666 ', x, y + 4)
+	elif digit == '7'
+		screen cb('777777', x, y)
+		screen cb('   77 ', x, y + 1)
+		screen cb('  77  ', x, y + 2)
+		screen cb(' 77   ', x, y + 3)
+		screen cb('77    ', x, y + 4)
+	elif digit == '8'
+		screen cb(' 8888 ', x, y)
+		screen cb('88  88', x, y + 1)
+		screen cb(' 8888 ', x, y + 2)
+		screen cb('88  88', x, y + 3)
+		screen cb(' 8888 ', x, y + 4)
+	elif digit == '9'
+		screen cb(' 9999 ', x, y)
+		screen cb('99  99', x, y + 1)
+		screen cb(' 99999', x, y + 2)
+		screen cb('    99', x, y + 3)
+		screen cb(' 9999 ', x, y + 4)
+	elif digit == ':'
+		screen cb('      ', x, y)
+		screen cb('  ::  ', x, y + 1)
+		screen cb('      ', x, y + 2)
+		screen cb('  ::  ', x, y + 3)
+		screen cb('      ', x, y + 4)
+	else
+		unreachable()
+
+tui =& Tui.mk()
+al = Alloc.idc()
+screen =& tui Tui.mk-screen(al)
+
+args = Args.get()
+start-time = Time.now()
+case args Slice.try-get(0)
+	Just(snum)
+		if snum == '-p'
+			filename = 'timer-start'
+			case filename File.try-read-contents(al)
+				Just(previous-timer)
+					# if exists, load the previous timer.
+					num = previous-timer
+						lines() head() or-fail('empty timer file')
+						parse-int() or-fail('could not parse first timestamp')
+					start-time <= { tv-sec: num, tv-nsec: 0 }
+				None
+					# make a new timer
+					s = StrBuilder.mk-const-str('\(start-time.tv-sec)\n', al)
+					filename File.write-contents(s)
+					s StrBuilder.free-const-str(al)
+		else
+			num = snum parse-int() or-fail('could not parse first timestamp')
+			start-time <= { tv-sec: num, tv-nsec: 0 }
+	None
+		pass
+
+
+last-diff = Time.diff(start-time, start-time)
+screen Tui.set-screen-fg(Term.Color8(Term.White8))
+first-time = True
+running = True
+while running
+	for ev in Iter.from-function(Tui.read-key)
+		case ev
+			Tui.Key(Tui.Char(c))
+				if c == 'q'
+					running <= False
+			_
+				pass
+	
+	resized = screen Tui.resize-screen-if-needed()
+	diff = Time.now() Time.diff(start-time)
+	if resized or diff.secs /= last-diff.secs or first-time
+		first-time <= False
+		last-diff <= diff
+		
+		screen Tui.clear-screen()
+		ct = clock-time-from-secs(diff.secs)
+		s = ct.s Mem.u8-i32() Str.pad-zeroes(2, False)
+		m = ct.m Mem.u8-i32() Str.pad-zeroes(2, False)
+		h = ct.h Mem.u32-i32() Str.pad-zeroes(2, True)
+		timer-str = '\(h):\(m):\(s)'
+		timer-sz = timer-str count() * 7 - 1
+		timer-h = 6
+		
+		begin-x = (tui&.width Mem.u32-i32() - timer-sz Mem.size-i32()) / 2
+		begin-y = (tui&.height Mem.u32-i32() - timer-h) / 2
+
+		if begin-x >= 0 and begin-y >= 0
+			for (c, i) in timer-str chars() zip(from(0))
+				screen draw-digit(c, begin-x + i*7, begin-y)
+		else
+			# display smol font.
+			timer-sz = timer-str count()
+			timer-h = 1
+			begin-x = (tui&.width Mem.u32-i32() - timer-sz Mem.size-i32()) / 2
+			begin-y = (tui&.height Mem.u32-i32() - timer-h) / 2
+			screen Tui.draw-str(timer-str, begin-x, begin-y)
+		
+		screen Tui.render-screen()
+	Tui.sync(tui)
+
+screen Tui.free-screen()
+tui Tui.deinit()
+
+println(start-time.tv-sec)
+
