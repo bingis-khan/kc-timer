@@ -1,6 +1,6 @@
 # smol terminal timer
 
-[screenshot](./screenshot.png)
+![screenshot](./screenshot.png)
 
 a smol, quick timer written in [kc](https://github.com/bingis-khan/kkc).
 counts time in 'HH:MM:SS' format and autoscales based on terminal size.
