@@ -1,0 +1,9 @@
+#!/bin/env kkc
+
+al = Alloc.idc()
+if 'timer' Sh.deps(['timer.kkc'])
+	Sh.run('kkc --backend c timer.kkc --dontRun', al)
+	Sh.run('cc -O2 timer.c -o timer', al)
+
+home = Env.get('HOME') or-fail('$HOME not defined')
+Sh.run('cp timer \(home)/.local/bin/', al)

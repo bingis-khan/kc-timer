@@ -116,6 +116,7 @@ case args Slice.try-get(0)
 						lines() head() or-fail('empty timer file')
 						parse-int() or-fail('could not parse first timestamp')
 					start-time <= { tv-sec: num, tv-nsec: 0 }
+					previous-timer DynStr.free(al)
 				None
 					# make a new timer
 					s = StrBuilder.mk-const-str('\(start-time.tv-sec)\n', al)
@@ -130,10 +131,9 @@ case args Slice.try-get(0)
 
 last-diff = Time.diff(start-time, start-time)
 screen Tui.set-screen-fg(Term.Color8(Term.White8))
-first-time = True
 running = True
 while running
-	for ev in Iter.from-function(Tui.read-key)
+	for ev in Iter.from-function(fn: Tui.read-event(tui))
 		case ev
 			Tui.Key(Tui.Char(c))
 				if c == 'q'
@@ -141,12 +141,11 @@ while running
 			_
 				pass
 	
-	resized = screen Tui.resize-screen-if-needed()
+	screen Tui.resize-screen-if-needed()
 	diff = Time.now() Time.diff(start-time)
-	if resized or diff.secs /= last-diff.secs or first-time
-		first-time <= False
+	if tui Tui.should-redraw() or diff.secs /= last-diff.secs
 		last-diff <= diff
-		
+
 		screen Tui.clear-screen()
 		ct = clock-time-from-secs(diff.secs)
 		s = ct.s Mem.u8-i32() Str.pad-zeroes(2, False)
