@@ -116,7 +116,7 @@ case args Slice.try-get(0)
 						lines() head() or-fail('empty timer file')
 						parse-int() or-fail('could not parse first timestamp')
 					start-time <= { tv-sec: num, tv-nsec: 0 }
-					previous-timer DynStr.free(al)
+					previous-timer StrView.free(al)
 				None
 					# make a new timer
 					s = StrBuilder.mk-const-str('\(start-time.tv-sec)\n', al)
