@@ -5,15 +5,18 @@ ClockTime
 	h U32
 	m U8
 	s U8
+	neg Bool
 	
 fn clock-time-from-secs (secs I64)
+	neg = False
 	if secs < 0
-		panic('negative seconds!')
+		neg <= True
+		secs <= -secs
 	
 	s = secs Math.mod(60) Mem.i64-u8()
 	m = (secs / 60) Math.mod(60) Mem.i64-u8()
 	h = (secs / (60 * 60)) Mem.i64-u32()
-	return ClockTime { h, m, s }
+	return ClockTime { h, m, s, neg }
 
 
 fn cb (screen Ptr (Screen Allocator), s Str, x I32, y I32)
@@ -96,6 +99,12 @@ fn draw-digit (screen Ptr (Screen Allocator), digit Char, x I32, y I32)
 		screen cb('      ', x, y + 2)
 		screen cb('  ::  ', x, y + 3)
 		screen cb('      ', x, y + 4)
+	elif digit == '-'
+		screen cb('      ', x, y)
+		screen cb('      ', x, y + 1)
+		screen cb(' ---- ', x, y + 2)
+		screen cb('      ', x, y + 3)
+		screen cb('      ', x, y + 4)
 	else
 		unreachable()
 
@@ -148,10 +157,11 @@ while running
 
 		screen Tui.clear-screen()
 		ct = clock-time-from-secs(diff.secs)
+		neg = if ct.neg: '-' else '' as StrView  # a reason to not use FromString class. (FromChar gets solved first, defaults to Char and then fails, because now Char needs FromString (which it should never have)). maybe it would be better to just convert those manually?
 		s = ct.s Mem.u8-i32() Str.pad-zeroes(2, False)
 		m = ct.m Mem.u8-i32() Str.pad-zeroes(2, False)
 		h = ct.h Mem.u32-i32() Str.pad-zeroes(2, True)
-		timer-str = '\(h):\(m):\(s)'
+		timer-str = '\(neg)\(h):\(m):\(s)'
 		timer-sz = timer-str count() * 7 - 1
 		timer-h = 6
 		
