@@ -99,10 +99,7 @@ fn draw-digit (screen Ptr (Screen Allocator), digit Char, x I32, y I32)
 	else
 		unreachable()
 
-tui =& Tui.mk()
 al = Alloc.idc()
-screen =& tui Tui.mk-screen(al)
-
 args = Args.get()
 start-time = Time.now()
 case args Slice.try-get(0)
@@ -128,6 +125,9 @@ case args Slice.try-get(0)
 	None
 		pass
 
+
+tui =& Tui.mk()
+screen =& tui Tui.mk-screen(al)
 
 last-diff = Time.diff(start-time, start-time)
 screen Tui.set-screen-fg(Term.Color8(Term.White8))
